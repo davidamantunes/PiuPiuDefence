@@ -1,0 +1,150 @@
+#include "sim.hpp"
+
+#include <iostream>
+#include <vector>
+#include <fstream>
+#include <random>
+
+#define CSV_FILE "SimOut.csv"
+
+std::mt19937 rng(std::random_device{}());
+std::normal_distribution<float> noise(0.0f, 2.0f);
+
+/**
+ * @def Random generates a spawn point for the threats
+ *      The points needs to be within a predefined grid SP_X1, SP_X2, etc
+ */
+Vector2 GSP()
+{
+    std::uniform_real_distribution<float> distX(SP_X1, SP_X2);
+    std::uniform_real_distribution<float> distY(SP_Y1, SP_Y2);
+
+    return {distX(rng), distY(rng)};
+}
+
+float kmh_to_ms(float kmh)
+{ return kmh / 3.6f; }
+
+/**
+ * @def Random generates threats
+ * @param id individual unique id
+ * @param targets vector containing all existing possible targets
+ */
+Threat get_threat(unsigned int id, const std::vector<Target>& targets)
+{
+    std::uniform_int_distribution<int> typeDist(0, 2);
+    std::uniform_int_distribution<int> targetDist(0, static_cast<int>(targets.size()) - 1);
+
+    int type = typeDist(rng);
+    Target target = targets[targetDist(rng)];
+
+    Vector2 spawn = GSP();
+
+    if (type == KALIBR)
+        return Threat(id, spawn, target, 0.75f, kmh_to_ms(3087.0f), "Kalibr", KALIBR, 1.2f, 0.45f);
+
+    if (type == KINZHAL)
+        return Threat(id, spawn, target, 1.0f, kmh_to_ms(5000.0f), "Kinzhal", KINZHAL, 2.0f, 0.12f);
+
+    return Threat(id, spawn, target, 0.5f, kmh_to_ms(1500.0f), "Geran2", GERAN, 2.8f, 1.10f);
+}
+
+const Target* findTargetInfo(const std::vector<Target>& targets, Vector2 targetPosition)
+{
+    for (const Target& target : targets)
+        if (target.position.x == targetPosition.x && target.position.y == targetPosition.y)
+            return &target;
+
+    return nullptr;
+}
+
+int getRiskLevel(int threatType, int targetType)
+{
+    int riskMatrix[3][3] =
+    {
+        {0, 1, 2},
+        {1, 2, 3},
+        {2, 3, 4}
+    };
+
+    return riskMatrix[threatType][targetType];
+}
+
+void run_simulation(float dt, const unsigned int steps, std::vector<Threat> &threats, std::vector<Target> &targets)
+{
+    std::ofstream fout(CSV_FILE);
+
+    fout << "EnemyWeaponType,ID,UAV_ID,TrueX,TrueY,MeasuredX,MeasuredY,"
+         << "Vx,Vy,Tx,Ty,Speed,Heading,TurnGain,MaxTurnRate,"
+         << "TargetX,TargetY,TargetType,RiskLevel,Time,Damage_Potential\n";
+
+    for (unsigned int step = 0; step < steps; step++)
+    {
+        float time = step * dt;
+
+        for (Threat& T : threats)
+        {
+            float measuredX = T.postion.x + noise(rng);
+            float measuredY = T.postion.y + noise(rng);
+
+            const Target* targetInfo = findTargetInfo(targets, T.target.position);
+
+            fout << T.type << ","
+                 << T.ID << ","
+                 << T.UAV_ID << ","
+                 << T.postion.x << ","
+                 << T.postion.y << ","
+                 << measuredX << ","
+                 << measuredY << ","
+                 << T.velocity.x << ","
+                 << T.velocity.y << ","
+                 << T.direction.x << ","
+                 << T.direction.y << ","
+                 << T.speed << ","
+                 << T.heading << ","
+                 << T.turn_gain << ","
+                 << T.max_turn_rate << ","
+                 << T.target.position.x << ","
+                 << T.target.position.y << ",";
+
+            unsigned int threatType = 0;
+
+            if (strcmp(T.type, "Kalibr") == 0) threatType = KALIBR;
+
+            if (strcmp(T.type, "Kinzhal") == 0) threatType = KINZHAL;
+
+            fout << getRiskLevel(threatType, targetInfo->id) << ",";
+            fout << T.damage_potential << ",";
+
+            fout << time << "\n";
+        }
+
+        for (Threat& T : threats)
+            T.update(dt);
+    }
+
+    fout.close();
+}
+
+int main()
+{
+    std::vector<Target> targets = {
+        {{7500, 2000}, "Energy", 2},
+        {{9000, 5000}, "Civilian", 1},
+        {{2500, 4000}, "Landscape", 0}
+    };
+
+    std::vector<Threat> threats;
+
+    unsigned int no_of_threats = 30;
+
+    for (unsigned int i = 1; i <= no_of_threats; i++)
+        threats.push_back(get_threat(i, targets));
+
+    float dt = 0.1f;
+    unsigned int steps = 1000;
+
+    run_simulation(dt, steps, threats, targets);
+
+    return 0;
+}
