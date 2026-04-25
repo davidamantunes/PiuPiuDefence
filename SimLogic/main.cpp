@@ -8,7 +8,7 @@
 #define CSV_FILE "SimOut.csv"
 
 std::mt19937 rng(std::random_device{}());
-std::normal_distribution<float> noise(0.0f, 2.0f);
+std::normal_distribution<float> noise(0.0f, 100.0f);
 
 /**
  * @def Random generates a spawn point for the threats
@@ -70,13 +70,23 @@ int getRiskLevel(int threatType, int targetType)
     return riskMatrix[threatType][targetType];
 }
 
+float normalize_speed(float speed)
+{
+    float speed_n = (speed - kmh_to_ms(1500.0f)) / (kmh_to_ms(5000.0f) - kmh_to_ms(1500.0f));
+
+    if (speed_n < 0.0f) speed_n = 0.0f;
+    if (speed_n > 1.0f) speed_n = 1.0f;
+
+    return speed_n;
+}
+
 void run_simulation(float dt, const unsigned int steps, std::vector<Threat> &threats, std::vector<Target> &targets)
 {
     std::ofstream fout(CSV_FILE);
 
-    fout << "EnemyWeaponType,ID,UAV_ID,TrueX,TrueY,MeasuredX,MeasuredY,"
-         << "Vx,Vy,Tx,Ty,Speed,Heading,TurnGain,MaxTurnRate,"
-         << "TargetX,TargetY,TargetType,RiskLevel,Time,Damage_Potential\n";
+    fout << "EnemyWeaponType,ID,UAV_ID,TrueX,TrueY,MeasuredX,MeasuredY,MeasuredX_Normalized,MeasuredY_Normalized,"
+         << "Vx,Vy,Tx,Ty,Speed,Speed_Normalized,Heading,TurnGain,MaxTurnRate,"
+         << "TargetX,TargetY,TargetType,RiskLevel,Damage_Potential,Time\n";
 
     for (unsigned int step = 0; step < steps; step++)
     {
@@ -87,7 +97,11 @@ void run_simulation(float dt, const unsigned int steps, std::vector<Threat> &thr
             float measuredX = T.postion.x + noise(rng);
             float measuredY = T.postion.y + noise(rng);
 
+            Vector2 measured_postion{measuredX, measuredY};
+
             const Target* targetInfo = findTargetInfo(targets, T.target.position);
+
+            Vector2 Postion_Normalized = normalize(measured_postion);
 
             fout << T.type << ","
                  << T.ID << ","
@@ -96,11 +110,14 @@ void run_simulation(float dt, const unsigned int steps, std::vector<Threat> &thr
                  << T.postion.y << ","
                  << measuredX << ","
                  << measuredY << ","
+                 << Postion_Normalized.x << ","
+                 << Postion_Normalized.y << ","
                  << T.velocity.x << ","
                  << T.velocity.y << ","
                  << T.direction.x << ","
                  << T.direction.y << ","
                  << T.speed << ","
+                 << normalize_speed(T.speed) << ","
                  << T.heading << ","
                  << T.turn_gain << ","
                  << T.max_turn_rate << ","
@@ -113,10 +130,12 @@ void run_simulation(float dt, const unsigned int steps, std::vector<Threat> &thr
 
             if (strcmp(T.type, "Kinzhal") == 0) threatType = KINZHAL;
 
-            fout << getRiskLevel(threatType, targetInfo->id) << ",";
-            fout << T.damage_potential << ",";
+            int risk = getRiskLevel(T.UAV_ID, targetInfo->id);
 
-            fout << time << "\n";
+            fout << targetInfo->id << ","
+                << risk << ","
+                << T.damage_potential << ","
+                << time << "\n";
         }
 
         for (Threat& T : threats)
@@ -138,8 +157,26 @@ int main()
 
     unsigned int no_of_threats = 30;
 
-    for (unsigned int i = 1; i <= no_of_threats; i++)
-        threats.push_back(get_threat(i, targets));
+    std::vector<int> desiredRiskCount = {6, 6, 6, 6, 6};
+    std::vector<int> currentRiskCount(5, 0);
+
+    while (threats.size() < no_of_threats)
+    {
+        Threat T = get_threat(static_cast<unsigned int>(threats.size() + 1), targets);
+
+        const Target* targetInfo = findTargetInfo(targets, T.target.position);
+
+        if (targetInfo == nullptr)
+            continue;
+
+        int risk = getRiskLevel(T.UAV_ID, targetInfo->id);
+
+        if (currentRiskCount[risk] < desiredRiskCount[risk])
+        {
+            threats.push_back(T);
+            currentRiskCount[risk]++;
+        }
+    }
 
     float dt = 0.1f;
     unsigned int steps = 1000;
