@@ -8,11 +8,10 @@ import numpy as np
 import copy
 import argparse
 
-from ThreatMLP import ThreatMLP_Basic, ThreatMLP_Trajectory
+from ThreatMLP import ThreatMLP_Trajectory
 
 class UAVDataset(Dataset):
     def __init__(self, csv_file):
-        # Read CSV. It's assumed to have a dummy header string on the first line.
         df = pd.read_csv(csv_file, header=0)
         self.df = df
         self.has_trajectory = "Tx" in df.columns and "Ty" in df.columns
@@ -25,32 +24,22 @@ class UAVDataset(Dataset):
         row = self.df.iloc[idx]
         
         uav_id = int(row["UAV_ID"])
-        px = np.float32(row["MeasuredX"])
-        py = np.float32(row["MeasuredY"])
-        speed = np.float32(row["Speed"])
-        # PyTorch expects 0-indexed class labels for CrossEntropy/NLLLoss
+        px = np.float32(row["MeasuredX_Normalized"])
+        py = np.float32(row["MeasuredY_Normalized"])
+        speed = np.float32(row["Speed_Normalized"])
         threat_id = int(row["RiskLevel"])
         damage = np.float32(row["Damage_Potential"])
-        
-        if not self.has_trajectory:
-            return (
-                torch.tensor([px]), torch.tensor([py]), torch.tensor([speed]),
-                torch.tensor(uav_id, dtype=torch.long),
-                torch.tensor(threat_id, dtype=torch.long),
-                torch.tensor([damage])
-            )
-        else:
-            tx = np.float32(row["Tx"])
-            ty = np.float32(row["Ty"])
-            return (
-                torch.tensor([px]), torch.tensor([py]), torch.tensor([speed]),
-                torch.tensor([tx]), torch.tensor([ty]),
-                torch.tensor(uav_id, dtype=torch.long),
-                torch.tensor(threat_id, dtype=torch.long),
-                torch.tensor([damage])
-            )
+        tx = np.float32(row["Tx"])
+        ty = np.float32(row["Ty"])
+        return (
+            torch.tensor([px]), torch.tensor([py]), torch.tensor([speed]),
+            torch.tensor([tx]), torch.tensor([ty]),
+            torch.tensor(uav_id, dtype=torch.long),
+            torch.tensor(threat_id, dtype=torch.long),
+            torch.tensor([damage])
+        )
 
-def train_mlp(csv_path, num_epochs=50, batch_size=32, lr=0.001, k_folds=5):
+def train_mlp(csv_path, num_epochs=100, batch_size=32, lr=0.001, k_folds=5):
     print(f"Loading data from {csv_path}...")
     dataset = UAVDataset(csv_path)
     
@@ -94,15 +83,14 @@ def train_mlp(csv_path, num_epochs=50, batch_size=32, lr=0.001, k_folds=5):
         val_loader = DataLoader(val_sub, batch_size=batch_size, shuffle=False)
         
         # Initialize a fresh model for each fold
-        if not is_trajectory:
-            model = ThreatMLP_Basic(num_uav_types=max(num_uav_types, 10))
-        else:
-            model = ThreatMLP_Trajectory(num_uav_types=max(num_uav_types, 10))
+        model = ThreatMLP_Trajectory(num_uav_types=max(num_uav_types, 5))
             
-        optimizer = optim.Adam(model.parameters(), lr=lr)
+        optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
         
         best_fold_val_loss = float('inf')
         
+        patience = 10  # Stop if no improvement after 5 epochs
+        epochs_no_improve = 0
         for epoch in range(num_epochs):
             model.train()
             train_loss = 0.0
@@ -147,10 +135,16 @@ def train_mlp(csv_path, num_epochs=50, batch_size=32, lr=0.001, k_folds=5):
             
             if val_loss < best_fold_val_loss:
                 best_fold_val_loss = val_loss
+                epochs_no_improve = 0
                 if val_loss < best_overall_val_loss:
                     best_overall_val_loss = val_loss
                     best_overall_model_weights = copy.deepcopy(model.state_dict())
+            else:
+                epochs_no_improve += 1
             
+            if epochs_no_improve >= patience:
+                print(f"Early stopping at epoch {epoch}!")
+                break
             # Print occasionally
             if (epoch + 1) % 10 == 0 or epoch == 0:
                 print(f"  Epoch [{epoch+1}/{num_epochs}] | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
@@ -159,7 +153,7 @@ def train_mlp(csv_path, num_epochs=50, batch_size=32, lr=0.001, k_folds=5):
         
     print("\n--- Cross Validation Finished ---")
     
-    save_path = "trained_mlp_best.pth"
+    save_path = "Outputs/trained_mlp_best.pth"
     torch.save(best_overall_model_weights, save_path)
     print(f"Best model saved to '{save_path}'")
 

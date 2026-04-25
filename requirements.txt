@@ -4,3 +4,4 @@ pandas
 streamlit
 torch
 scikit-learn
+onnxscript
