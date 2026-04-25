@@ -1,4 +1,3 @@
 EnemyWeaponType,ID,DefenceType,ThreatLevel
 ISkander,2,Patriot,5
-Lanct,3,InterceptorDrone,3
 Lanct,1,InterceptorDrone,2
