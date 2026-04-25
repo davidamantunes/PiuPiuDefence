@@ -71,7 +71,7 @@ struct Threat
     float heading;
     float turn_gain;
     float max_turn_rate;
-    float hit_radius = 50.0f;
+    float hit_radius = 60.0f;
     
     bool left_map;
     bool active;
