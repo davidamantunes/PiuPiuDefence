@@ -15,15 +15,10 @@ def test_mlp(csv_path, model_path, batch_size=32, save_predictions=False):
     
     # Infer the number of distinct UAV types from the max id in the dataset
     num_uav_types = int(dataset.df["UAV_ID"].max()) + 1
-    
-    if dataset.num_cols == 6:
-        print("Detected 6 columns. Target Model: ThreatMLP_Basic")
-        is_trajectory = False
-        model = ThreatMLP_Basic(num_uav_types=max(num_uav_types, 10))
-    else:
-        print("Detected 8 columns. Target Model: ThreatMLP_Trajectory")
-        is_trajectory = True
-        model = ThreatMLP_Trajectory(num_uav_types=max(num_uav_types, 10))
+
+    print("Target Model: ThreatMLP_Trajectory")
+    is_trajectory = True
+    model = ThreatMLP_Trajectory(num_uav_types=max(num_uav_types, 5))
         
     print(f"Loading model weights from {model_path}...")
     model.load_state_dict(torch.load(model_path))

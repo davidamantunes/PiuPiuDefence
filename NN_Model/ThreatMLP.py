@@ -49,23 +49,31 @@ class ThreatMLP_Trajectory(nn.Module):
         # Input: x, y, speed, dx, dy + embedding
         input_dim = 5 + embed_dim
         
-        self.fc1 = nn.Linear(input_dim, 128)
-        self.fc2 = nn.Linear(128, 128)
-        self.fc3 = nn.Linear(128, 64)
-        self.fc4 = nn.Linear(64, 32)
-        
-        self.threat_head = nn.Linear(32, 5)
-        self.damage_head = nn.Linear(32, 1)
+        self.shared = nn.Sequential(
+            nn.Linear(input_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU()
+        )
+
+        self.threat_head = nn.Sequential(
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 5)
+        )
+
+        self.damage_head = nn.Sequential(
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1)
+        )
 
     def forward(self, x, y, speed, dx, dy, uav_type):
         uav_embed = self.embedding(uav_type)
         
         inputs = torch.cat([x, y, speed, dx, dy, uav_embed], dim=1)
         
-        h = F.relu(self.fc1(inputs))
-        h = F.relu(self.fc2(h))
-        h = F.relu(self.fc3(h))
-        h = F.relu(self.fc4(h))
+        h = self.shared(inputs)
         
         threat_logits = self.threat_head(h)
         threat_probs = F.softmax(threat_logits, dim=1)
