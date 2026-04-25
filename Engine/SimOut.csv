@@ -1,0 +1,5 @@
+EnemyWeaponType,ID,PositionX,PostionY,Vx,Vy,time
+Lanct,1,0,0,19.5217,15.6174,0
+ISkander,2,120,0,-6.88155,9.83078,0
+Lanct,1,1.95217,1.56174,19.5217,15.6174,0.1
+ISkander,2,119.312,0.983078,-6.88155,9.83078,0.1
