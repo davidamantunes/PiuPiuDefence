@@ -12,7 +12,6 @@ from ThreatMLP import ThreatMLP_Basic, ThreatMLP_Trajectory
 
 class UAVDataset(Dataset):
     def __init__(self, csv_file):
-        # Read CSV. It's assumed to have a dummy header string on the first line.
         df = pd.read_csv(csv_file, header=0)
         self.df = df
         self.has_trajectory = "Tx" in df.columns and "Ty" in df.columns
@@ -28,7 +27,6 @@ class UAVDataset(Dataset):
         px = np.float32(row["MeasuredX"])
         py = np.float32(row["MeasuredY"])
         speed = np.float32(row["Speed"])
-        # PyTorch expects 0-indexed class labels for CrossEntropy/NLLLoss
         threat_id = int(row["RiskLevel"])
         damage = np.float32(row["Damage_Potential"])
         
@@ -50,7 +48,7 @@ class UAVDataset(Dataset):
                 torch.tensor([damage])
             )
 
-def train_mlp(csv_path, num_epochs=50, batch_size=32, lr=0.001, k_folds=5):
+def train_mlp(csv_path, num_epochs=100, batch_size=32, lr=0.0001, k_folds=5):
     print(f"Loading data from {csv_path}...")
     dataset = UAVDataset(csv_path)
     
@@ -103,6 +101,8 @@ def train_mlp(csv_path, num_epochs=50, batch_size=32, lr=0.001, k_folds=5):
         
         best_fold_val_loss = float('inf')
         
+        patience = 10  # Stop if no improvement after 5 epochs
+        epochs_no_improve = 0
         for epoch in range(num_epochs):
             model.train()
             train_loss = 0.0
@@ -147,10 +147,16 @@ def train_mlp(csv_path, num_epochs=50, batch_size=32, lr=0.001, k_folds=5):
             
             if val_loss < best_fold_val_loss:
                 best_fold_val_loss = val_loss
+                epochs_no_improve = 0
                 if val_loss < best_overall_val_loss:
                     best_overall_val_loss = val_loss
                     best_overall_model_weights = copy.deepcopy(model.state_dict())
+            else:
+                epochs_no_improve += 1
             
+            if epochs_no_improve >= patience:
+                print(f"Early stopping at epoch {epoch}!")
+                break
             # Print occasionally
             if (epoch + 1) % 10 == 0 or epoch == 0:
                 print(f"  Epoch [{epoch+1}/{num_epochs}] | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
