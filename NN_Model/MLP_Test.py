@@ -60,16 +60,10 @@ def test_mlp(csv_path, model_path, batch_size=32, save_predictions=False):
             # Record individual predictions conditionally
             if save_predictions:
                 for i in range(len(target_threat)):
-                    if is_trajectory:
-                        test_results.append({
-                            'Predicted_Threat': predicted_threats[i].item() + 1,
-                            'Predicted_Damage': damage[i].item()
-                        })
-                    else:
-                        test_results.append({
-                            'Predicted_Threat': predicted_threats[i].item() + 1,
-                            'Predicted_Damage': damage[i].item()
-                        })
+                    test_results.append({
+                        'Predicted_Threat': predicted_threats[i].item() + 1,
+                        'Predicted_Damage': damage[i].item()
+                    })
             
     test_loss /= total_samples
     if total_samples > 0:
@@ -81,14 +75,14 @@ def test_mlp(csv_path, model_path, batch_size=32, save_predictions=False):
     print(f"Final Threat Classification Accuracy: {test_accuracy:.2f}%")
     
     if save_predictions:
-        results_path = "test_results_predictions.csv"
+        results_path = "Outputs/test_results_predictions.csv"
         pd.DataFrame(test_results).to_csv(results_path, index=False)
         print(f"Test data and predictions saved to '{results_path}'")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Test UAV Threat MLP')
     parser.add_argument('--csv_path', type=str, default='Dataset/SimOut_Test.csv', help='Path to the test dataset CSV file')
-    parser.add_argument('--model_path', type=str, default='trained_mlp_best.pth', help='Path to the trained model weights (.pth)')
+    parser.add_argument('--model_path', type=str, default='Outputs/trained_mlp_best.pth', help='Path to the trained model weights (.pth)')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch size for data loading')
     parser.add_argument('--save_predictions', action='store_true', help='Flag to save hold-out test predictions to CSV')
     
