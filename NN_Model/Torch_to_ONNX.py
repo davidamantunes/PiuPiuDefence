@@ -27,7 +27,7 @@ def export_to_onnx():
 
     inputs = (x, y, speed, dx, dy, uav_type)
 
-    output_onnx_file = "threat_mlp.onnx"
+    output_onnx_file = "Outputs/threat_mlp.onnx"
     torch.onnx.export(
         model,                  
         inputs,        

@@ -62,26 +62,12 @@ def test_mlp(csv_path, model_path, batch_size=32, save_predictions=False):
                 for i in range(len(target_threat)):
                     if is_trajectory:
                         test_results.append({
-                            'UAV_id': uav_type[i].item(),
-                            'Px': x[i].item(),
-                            'Py': y[i].item(),
-                            'Tx': dx[i].item(),
-                            'Ty': dy[i].item(),
-                            'Speed': speed[i].item(),
-                            'Actual_Threat': target_threat[i].item() + 1,  # Undo 0-index offset
                             'Predicted_Threat': predicted_threats[i].item() + 1,
-                            'Actual_Damage': target_damage[i].item(),
                             'Predicted_Damage': damage[i].item()
                         })
                     else:
                         test_results.append({
-                            'UAV_id': uav_type[i].item(),
-                            'Px': x[i].item(),
-                            'Py': y[i].item(),
-                            'Speed': speed[i].item(),
-                            'Actual_Threat': target_threat[i].item() + 1,  # Undo 0-index offset
                             'Predicted_Threat': predicted_threats[i].item() + 1,
-                            'Actual_Damage': target_damage[i].item(),
                             'Predicted_Damage': damage[i].item()
                         })
             
