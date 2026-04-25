@@ -14,39 +14,34 @@ class UAVDataset(Dataset):
     def __init__(self, csv_file):
         # Read CSV. It's assumed to have a dummy header string on the first line.
         df = pd.read_csv(csv_file, header=0)
-        self.data = df.values.astype(np.float32)
-        self.num_cols = self.data.shape[1]
+        self.df = df
+        self.has_trajectory = "Tx" in df.columns and "Ty" in df.columns
+        self.num_cols = 8 if self.has_trajectory else 6
         
     def __len__(self):
-        return len(self.data)
+        return len(self.df)
     
     def __getitem__(self, idx):
-        row = self.data[idx]
+        row = self.df.iloc[idx]
         
-        # If the CSV has 6 columns: UAV_id, Px, Py, Speed, Threat_id, destruction_normalised
-        if self.num_cols == 6:
-            uav_id = int(row[0])
-            px, py, speed = row[1:4]
-            # PyTorch expects 0-indexed class labels for CrossEntropy/NLLLoss
-            # Assuming threat_id in CSV is 1-5, we subtract 1 to get 0-4
-            threat_id = int(row[4]) - 1
-            damage = row[5]
-            
+        uav_id = int(row["UAV_ID"])
+        px = np.float32(row["MeasuredX"])
+        py = np.float32(row["MeasuredY"])
+        speed = np.float32(row["Speed"])
+        # PyTorch expects 0-indexed class labels for CrossEntropy/NLLLoss
+        threat_id = int(row["RiskLevel"])
+        damage = np.float32(row["Damage_Potential"])
+        
+        if not self.has_trajectory:
             return (
                 torch.tensor([px]), torch.tensor([py]), torch.tensor([speed]),
                 torch.tensor(uav_id, dtype=torch.long),
                 torch.tensor(threat_id, dtype=torch.long),
                 torch.tensor([damage])
             )
-            
-        # If the CSV has 8 columns: UAV_id, Px, Py, Tx, Ty, Speed, Threat_id, destruction_normalised
-        elif self.num_cols == 8:
-            uav_id = int(row[0])
-            px, py, tx, ty, speed = row[1:6]
-            # Subtract 1 to match 0-indexed criteria in PyTorch
-            threat_id = int(row[6]) - 1
-            damage = row[7]
-            
+        else:
+            tx = np.float32(row["Tx"])
+            ty = np.float32(row["Ty"])
             return (
                 torch.tensor([px]), torch.tensor([py]), torch.tensor([speed]),
                 torch.tensor([tx]), torch.tensor([ty]),
@@ -54,15 +49,13 @@ class UAVDataset(Dataset):
                 torch.tensor(threat_id, dtype=torch.long),
                 torch.tensor([damage])
             )
-        else:
-            raise ValueError(f"Unsupported number of columns in CSV: {self.num_cols}. Ensure your CSV matches the required format.")
 
 def train_mlp(csv_path, num_epochs=50, batch_size=32, lr=0.001, test_split=0.2, k_folds=5, save_predictions=False):
     print(f"Loading data from {csv_path}...")
     dataset = UAVDataset(csv_path)
     
     # We infer the number of distinct UAV types from the max id in the dataset
-    num_uav_types = int(dataset.data[:, 0].max()) + 1
+    num_uav_types = int(dataset.df["UAV_ID"].max()) + 1
     
     # Split into general (train+val) and final test set
     dataset_indices = np.arange(len(dataset))
@@ -248,7 +241,7 @@ def train_mlp(csv_path, num_epochs=50, batch_size=32, lr=0.001, test_split=0.2, 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train UAV Threat MLP')
-    parser.add_argument('--csv_path', type=str, default='Dataset/air_defense_dataset_with_damage.csv', help='Path to the dataset CSV file')
+    parser.add_argument('--csv_path', type=str, default='Dataset/SimOut.csv', help='Path to the dataset CSV file')
     parser.add_argument('--epochs', type=int, default=100, help='Number of training epochs per fold')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch size for data loading')
     parser.add_argument('--save_predictions', action='store_true', help='Flag to save hold-out test predictions to CSV')
