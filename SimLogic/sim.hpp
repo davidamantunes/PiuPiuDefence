@@ -129,6 +129,20 @@ void Threat::update(float dt)
 {
     if (!active) return;
 
+    Vector2 to_target = target.position - postion;
+    float distance_to_target = length(to_target);
+    float step_distance = speed * dt;
+
+    if (distance_to_target <= hit_radius || step_distance >= distance_to_target)
+    {
+        postion = target.position;
+        velocity = {0.0f, 0.0f};
+        active = false;
+        reached_target = true;
+        
+        return;
+    }
+
     float angle = angle_to_target(postion, target.position);
 
     float error = wrap_angle(angle - heading);
