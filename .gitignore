@@ -1,0 +1,3 @@
+NN_Model/test_results_predictions.csv
+NN_Model/trained_mlp_best.pth
+NN_Model/__pycache__
