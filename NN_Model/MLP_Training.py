@@ -51,13 +51,6 @@ def train_mlp(csv_path, num_epochs=100, batch_size=32, lr=0.001, k_folds=5):
     cv_idx = dataset_indices
     
     print(f"Total samples: {len(dataset)} | CV (Train+Val) samples: {len(cv_idx)}")
-    
-    if dataset.num_cols == 6:
-        print("Detected 6 columns. Target Model: ThreatMLP_Basic")
-        is_trajectory = False
-    else:
-        print("Detected 8 columns. Target Model: ThreatMLP_Trajectory")
-        is_trajectory = True
         
     kfold = KFold(n_splits=k_folds, shuffle=True, random_state=42)
     
@@ -99,12 +92,8 @@ def train_mlp(csv_path, num_epochs=100, batch_size=32, lr=0.001, k_folds=5):
             for batch in train_loader:
                 optimizer.zero_grad()
                 
-                if is_trajectory:
-                    x, y, speed, dx, dy, uav_type, target_threat, target_damage = batch
-                    threat_probs, damage = model(x, y, speed, dx, dy, uav_type)
-                else:
-                    x, y, speed, uav_type, target_threat, target_damage = batch
-                    threat_probs, damage = model(x, y, speed, uav_type)
+                x, y, speed, dx, dy, uav_type, target_threat, target_damage = batch
+                threat_probs, damage = model(x, y, speed, dx, dy, uav_type)
                     
                 log_threat_probs = torch.log(threat_probs + 1e-8)
                 loss = criterion_threat(log_threat_probs, target_threat) + 0.5 * criterion_damage(damage, target_damage)
@@ -120,12 +109,8 @@ def train_mlp(csv_path, num_epochs=100, batch_size=32, lr=0.001, k_folds=5):
             val_loss = 0.0
             with torch.no_grad():
                 for batch in val_loader:
-                    if is_trajectory:
-                        x, y, speed, dx, dy, uav_type, target_threat, target_damage = batch
-                        threat_probs, damage = model(x, y, speed, dx, dy, uav_type)
-                    else:
-                        x, y, speed, uav_type, target_threat, target_damage = batch
-                        threat_probs, damage = model(x, y, speed, uav_type)
+                    x, y, speed, dx, dy, uav_type, target_threat, target_damage = batch
+                    threat_probs, damage = model(x, y, speed, dx, dy, uav_type)
                         
                     log_threat_probs = torch.log(threat_probs + 1e-8)
                     v_loss = criterion_threat(log_threat_probs, target_threat) + 0.5 * criterion_damage(damage, target_damage)
