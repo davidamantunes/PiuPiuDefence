@@ -82,7 +82,7 @@ def train_mlp(csv_path, num_epochs=100, batch_size=32, lr=0.001, k_folds=5):
         
         best_fold_val_loss = float('inf')
         
-        patience = 10  # Stop if no improvement after 5 epochs
+        patience = 5  # Stop if no improvement after 5 epochs
         epochs_no_improve = 0
         for epoch in range(num_epochs):
             model.train()
