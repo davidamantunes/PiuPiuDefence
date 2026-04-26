@@ -74,7 +74,7 @@ def run_rule_based_decision():
         })
 
     # Sort primarily by time step (ascending), then priority (descending within same timestep)
-    results = sorted(results, key=lambda x: (x['TimeStep'], -x['Priority']))
+    #results = sorted(results, key=lambda x: (x['TimeStep'], -x['Priority']))
 
     with open(out_path, 'w', newline='') as f:
         fieldnames = ['TimeStep', 'ID', 'UAV_ID', 'PositionX', 'PositionY', 'Defense Choice', 'Priority']
