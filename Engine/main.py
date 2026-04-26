@@ -25,9 +25,17 @@ def create_predictions_output(prediction_df: pd.DataFrame, time_t: float) -> pd.
 	"""Return all threats observed at the given time t."""
 	output_df = prediction_df.copy()
 	output_df = output_df[output_df["Time"] == time_t]
-	output_df["_sort_score"] = output_df["Predicted_Threat"] * output_df["Predicted_Damage"]
-	output_df = output_df.sort_values(by="_sort_score", ascending=False, na_position="last")
-	output_df = output_df.drop(columns=["_sort_score"])
+	raw_threat = output_df["Predicted_Threat"] * output_df["Predicted_Damage"]
+	if raw_threat.empty:
+		output_df["ThreatLevel"] = raw_threat
+	else:
+		min_threat = raw_threat.min(skipna=True)
+		max_threat = raw_threat.max(skipna=True)
+		if pd.isna(min_threat) or pd.isna(max_threat) or min_threat == max_threat:
+			output_df["ThreatLevel"] = 0.0
+		else:
+			output_df["ThreatLevel"] = ((raw_threat - min_threat) / (max_threat - min_threat)) * 100.0
+	output_df = output_df.sort_values(by="ThreatLevel", ascending=False, na_position="last")
 	return output_df.reset_index(drop=True)
 
 def main() -> None:
