@@ -72,25 +72,29 @@ struct Threat
     float turn_gain;
     float max_turn_rate;
     float hit_radius = 60.0f;
+    float max_lateral_accel;
+    float drag_coeff;
     
     bool left_map;
     bool active;
     bool reached_target;
 
-    Threat(unsigned int ID, Vector2 start, Target target, float dmg_pot,
+    Threat(unsigned int ID, Vector2 start, Target target, float __heading, float dmg_pot,
              float __speed, const char name[], unsigned int uav_id,
                 float __turn_gain, float __max_turn_rate)
-        : ID(ID), UAV_ID(uav_id), postion(start), target(target), damage_potential(dmg_pot),
+        : ID(ID), UAV_ID(uav_id), postion(start), target(target), heading(__heading), damage_potential(dmg_pot),
              speed(__speed), turn_gain(__turn_gain), max_turn_rate(__max_turn_rate)
     {
         strcpy(type, name);
 
-        heading = angle_to_target(start, target.position);
         init_velocity();
 
         left_map = false;
         active = true;
         reached_target = false;
+
+        max_lateral_accel = speed * max_turn_rate;
+        drag_coeff = 0.00005f;
     }
 
     void init_velocity()
@@ -131,40 +135,72 @@ void Threat::update(float dt)
 
     Vector2 to_target = target.position - postion;
     float distance_to_target = length(to_target);
-    float step_distance = speed * dt;
 
-    if (distance_to_target <= hit_radius || step_distance >= distance_to_target)
+    if (distance_to_target <= hit_radius)
     {
         postion = target.position;
         velocity = {0.0f, 0.0f};
+        direction = {0.0f, 0.0f};
         active = false;
         reached_target = true;
-        
         return;
     }
 
-    float angle = angle_to_target(postion, target.position);
+    float desired_heading = angle_to_target(postion, target.position);
+    float error = wrap_angle(desired_heading - heading);
 
-    float error = wrap_angle(angle - heading);
+    float V = length(velocity);
+    if (V < 1e-6f) V = speed;
+
+    float physical_max_turn_rate = max_lateral_accel / V;
 
     float heading_rate = turn_gain * error;
-
-    heading_rate = clamp(heading_rate, -max_turn_rate, max_turn_rate);
+    heading_rate = clamp(
+        heading_rate,
+        -physical_max_turn_rate,
+        physical_max_turn_rate
+    );
 
     heading += heading_rate * dt;
 
-    velocity.x = speed * cos(heading);
-    velocity.y = speed * sin(heading);
+    Vector2 forward = {std::cos(heading), std::sin(heading)};
+    Vector2 lateral = {-std::sin(heading), std::cos(heading)};
+
+    float lateral_accel = heading_rate * V;
+
+    Vector2 accel_lateral = lateral * lateral_accel;
+
+    float speed_error = speed - V;
+    float forward_accel_gain = 0.8f;
+
+    Vector2 accel_forward = forward * (forward_accel_gain * speed_error);
+    Vector2 drag = velocity * (-drag_coeff * V);
+    Vector2 acceleration = accel_forward + accel_lateral + drag;
+
+    velocity = velocity + acceleration * dt;
+
+    float new_speed = length(velocity);
+
+    if (new_speed > speed)
+        velocity = normalize(velocity) * speed;
+
+    direction = normalize(velocity);
+    heading = atan2(direction.y, direction.x);
 
     postion = postion + velocity * dt;
 
     if (length(target.position - postion) <= hit_radius)
     {
+        postion = target.position;
+        velocity = {0.0f, 0.0f};
+        direction = {0.0f, 0.0f};
         active = false;
         reached_target = true;
+        return;
     }
 
-    if (postion.x < 0.0f || postion.x > 10000.0f || postion.y < 0.0f || postion.y > 10000.0f)
+    if (postion.x < 0.0f || postion.x > 10000.0f ||
+        postion.y < 0.0f || postion.y > 10000.0f)
     {
         left_map = true;
         active = false;

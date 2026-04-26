@@ -25,6 +25,20 @@ Vector2 GSP()
 float kmh_to_ms(float kmh)
 { return kmh / 3.6f; }
 
+float random_float(float minVal, float maxVal)
+{
+    std::uniform_real_distribution<float> dist(minVal, maxVal);
+    return dist(rng);
+}
+
+float apply_initial_heading_offset(Vector2 Tpos, Vector2 TargetPos, float maxOffset)
+{
+    float baseHeading = angle_to_target(Tpos, TargetPos);
+    float offset = random_float(-maxOffset, maxOffset);
+
+    return baseHeading + offset;
+}
+
 /**
  * @def Random generates threats
  * @param id individual unique id
@@ -41,12 +55,23 @@ Threat get_threat(unsigned int id, const std::vector<Target>& targets)
     Vector2 spawn = GSP();
 
     if (type == KALIBR)
-        return Threat(id, spawn, target, 0.75f, kmh_to_ms(3087.0f), "Kalibr", KALIBR, 1.2f, 0.45f);
+    {
+        float heading = apply_initial_heading_offset(spawn, target.position, 1.2f);
+        Threat T(id, spawn, target, heading, 0.75f, kmh_to_ms(3087.0f), "Kalibr", KALIBR, 1.2f, 0.45f);
+        return T;
+    }
 
     if (type == KINZHAL)
-        return Threat(id, spawn, target, 1.0f, kmh_to_ms(5000.0f), "Kinzhal", KINZHAL, 2.0f, 0.12f);
+    {
+        float heading = apply_initial_heading_offset(spawn, target.position, 0.50f);
+        Threat T(id, spawn, target, heading, 1.0f, kmh_to_ms(4500.0f), "Kinzhal", KINZHAL, 2.4f, 0.12f);
+        return T;
+    }
 
-    return Threat(id, spawn, target, 0.5f, kmh_to_ms(1500.0f), "Geran2", GERAN, 2.8f, 1.10f);
+    float heading = apply_initial_heading_offset(spawn, target.position, 0.80f);
+    Threat T(id, spawn, target, heading, 0.5f, kmh_to_ms(1500.0f), "Geran2", GERAN, 2.8f, 1.10f);
+
+    return T;
 }
 
 const Target* findTargetInfo(const std::vector<Target>& targets, Vector2 targetPosition)
@@ -94,6 +119,9 @@ void run_simulation(float dt, const unsigned int steps, std::vector<Threat> &thr
 
         for (Threat& T : threats)
         {
+            if (!T.active)
+                continue;
+
             float measuredX = T.postion.x + noise(rng);
             float measuredY = T.postion.y + noise(rng);
 
@@ -155,9 +183,9 @@ int main()
 
     std::vector<Threat> threats;
 
-    unsigned int no_of_threats = 30;
+    unsigned int no_of_threats = 6;
 
-    std::vector<int> desiredRiskCount = {6, 6, 6, 6, 6};
+    std::vector<int> desiredRiskCount = {10, 10, 10, 10, 10};
     std::vector<int> currentRiskCount(5, 0);
 
     while (threats.size() < no_of_threats)
