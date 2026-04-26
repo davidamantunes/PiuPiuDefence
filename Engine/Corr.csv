@@ -1,3 +1,8 @@
-EnemyWeaponType, DefenceType
-Lanct, InterceptorDrone
-ISkander, Patriot
+EnemyWeaponType, DefenceType, WeaponCost
+Geran-2, Pokrova, 20000-50000
+Geran-2, Bukovel-AD, 20000-50000
+Geran-2, MobileFireGroup, 20000-50000
+Geran-2, InterceptorDrone, 20000-50000
+Kalibr, Patriot, 1200000-6500000
+Kalibr, S-300, 1200000-6500000
+Kinzhal, Patriot, 10000000

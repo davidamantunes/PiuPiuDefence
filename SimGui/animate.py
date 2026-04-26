@@ -62,7 +62,6 @@ def create_map_figure(sim_df: pd.DataFrame, selected_time: float) -> plt.Figure:
             [latest["TrueY"]],
             s=70,
             color=color,
-            label=f"{weapon_type} ID {weapon_id}",
         )
 
     ax.scatter([7500], [2000], s=200, color="black", marker="s", label="Civilians")
@@ -84,7 +83,7 @@ def create_map_figure(sim_df: pd.DataFrame, selected_time: float) -> plt.Figure:
 
 def run_animation(csv_path: Path | None = None, speed_multiplier: float = 1.0) -> None:
     """Run the matplotlib animation window."""
-    csv_path = csv_path or Path(__file__).with_name("SimOut.csv")
+    csv_path = csv_path or Path(__file__).with_name("SimOutNew.csv")
     df = load_sim_data(csv_path)
 
     times = sorted(df["Time"].unique())
@@ -111,8 +110,7 @@ def run_animation(csv_path: Path | None = None, speed_multiplier: float = 1.0) -
     for weapon_key, weapon_df in df.groupby("WeaponKey"):
         weapon_type = weapon_df["EnemyWeaponType"].iloc[0]
         weapon_id = weapon_df["ID"].iloc[0]
-        label = f"{weapon_type} ID {weapon_id}"
-        scatters[weapon_key] = ax.scatter([], [], s=80, label=label, color=colors.get(weapon_type, "blue"))
+        scatters[weapon_key] = ax.scatter([], [], s=80, color=colors.get(weapon_type, "blue"))
         trail_lines[weapon_key] = LineCollection([], linewidths=[], colors=[])
         ax.add_collection(trail_lines[weapon_key])
 
@@ -135,7 +133,7 @@ def run_animation(csv_path: Path | None = None, speed_multiplier: float = 1.0) -
 
     ax.scatter([7500], [2000], s=200, color="black", marker="s", label="Civilians")
     ax.scatter([9000], [5000], s=200, color="blue", marker="s", label="Power Plants")
-    ax.legend()
+
 
     def update(frame):
         t = times[frame]
